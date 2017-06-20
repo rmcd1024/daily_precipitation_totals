@@ -37,7 +37,7 @@ A final note: on two days, the offical precipitation total is off by 0.01", and 
 ## The following is based in part on Hadley Wickham's 
 ## weather.r in the R package nycflights13
 ## 
-x = read_csv('~/data/weather/asos_lga_2013-06-01_2013-08-01.csv')
+x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv')
 tmp = x %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),

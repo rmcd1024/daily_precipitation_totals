@@ -1,11 +1,11 @@
 ---
-title: "Calculation of total daily precipitation using ASOS data: Example"
+title: 'Calculation of total daily precipitation using ASOS data: Example'
 author: "Robert McDonald"
 date: "June 19, 2017"
 output:
-  github_document: default
   html_document:
     keep_md: yes
+  github_document: default
   pdf_document: default
 ---
 
@@ -52,7 +52,7 @@ lga = lgahist %>%
 
 ```
 
-## Computing totals from ASOS data 
+## Computing LGA precipitation totals from ASOS data 
 
 The ASOS data was obtained from [Iowa
 State](https://mesonet.agron.iastate.edu/request/download.phtml?network=NY_ASOS)
@@ -71,12 +71,12 @@ DST is adopted and removed would otherwise create either an hour
 hole or a double-counted hour.
 
 One complication is that the reset minute can vary by site. Although
-I knew that for LGA the reset occurs at 51 minutes, this is not 
-generally true. So in the code below I compute the `modalminute`, 
+it is obvious that the LGA reset occurs at 51 minutes, this is not 
+true for all ASOS. So in the code below I compute `modalminute`,
 which is the most frequently occurring minute in the data. I assume 
 that this is the reset time. Because R has no function for computing
-the mode, I use the `table` function to find the most common value
-for minute.
+the mode, I use the `tabulate` function and `which.max` to find the
+most common value for minute.
 
 Note also that I specify the time zone as "America/New_York" and
 then undo DST by using the `dst` function to see if daylight savings
@@ -88,11 +88,10 @@ A final note: on two days, the offical precipitation total is off by
 happens.
 
 ```{r}
-## The following is based in part on Hadley Wickham's 
+## This was inspired by Hadley Wickham's 
 ## weather.r in the R package nycflights13
-## 
 x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv')
-tmp = x %>% 
+x %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
                        "America/New_York"),
@@ -102,17 +101,18 @@ tmp = x %>%
          day = day(date),
          hour = hour(date),
          minute = minute(date)) %T>% 
-         {modalminute <<- 
-           as.numeric(names(sort(table(.$minute), 
-                                 decreasing=TRUE))[1])} %>% 
+         {modalminute <<- which.max(tabulate(.$minute))}  %>% 
   group_by(year, month, day, hour) %>% 
   filter(minute <= modalminute) %>% 
   summarize(hourlyprecip = max(p01i)) %>% 
   group_by(year, month, day) %>% 
   summarize('Daily Precipitation (ASOS)' = sum(hourlyprecip)) %>% 
   filter(year==2013, month==6) %>% 
-  left_join(lga %>% select(Historical:day))
-kable(tmp)
+  left_join(lga %>% select(Historical:day)) %>% 
+  kable(caption = paste0('24-hour precipitation. ',
+                         'Hourly cumulation reset at ', 
+                         modalminute, ' minutes'))
   
 ```
 
+  

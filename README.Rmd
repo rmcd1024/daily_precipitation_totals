@@ -3,9 +3,9 @@ title: 'Calculation of total daily precipitation using ASOS data: Example'
 author: "Robert McDonald"
 date: "June 19, 2017"
 output:
+  github_document: default
   html_document:
     keep_md: yes
-  github_document: default
   pdf_document: default
 ---
 

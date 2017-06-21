@@ -87,6 +87,11 @@ A final note: on two days, the offical precipitation total is off by
 0.01", and this is corrected the next day. I am not sure why this
 happens.
 
+If you are fascinated by the issues involved in measuring
+precipitation,
+[be sure to take a look at this presentation.](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf)
+
+
 ```{r}
 ## This was inspired by Hadley Wickham's 
 ## weather.r in the R package nycflights13

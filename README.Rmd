@@ -28,10 +28,12 @@ daily precipitation totals using Automated Surface Observation
 System (ASOS) [data from Iowa
 State](https://mesonet.agron.iastate.edu/ASOS/).
 
-You should be aware that the concept of a "daily precipitation
-total" is fraught. If you are interested, there is a presentation on
-the topic by Daryl Herzmann from Iowa State. I think the phrase
-"down the rabbit hole" occurs to everyone who looks into this topic.
+You should be aware that the concept of a "daily precipitation total"
+is fraught. If you are interested, there is
+a
+[presentation on the topic](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf) by
+Daryl Herzmann from Iowa State. I think the phrase "down the rabbit
+hole" occurs to everyone who looks into this topic.
 
 ## History
 

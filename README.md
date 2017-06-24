@@ -6,14 +6,14 @@ June 19, 2017
 What is this?
 -------------
 
-The purpose of this document is to illustrate the computation of daily precipitation totals using Automated Surface Observation System (ASOS) [data from Iowa State](https://mesonet.agron.iastate.edu/ASOS/).
+The purpose of this document is to illustrate the computation of daily precipitation totals using Automated Surface Observation System (ASOS) [data from Iowa State](https://mesonet.agron.iastate.edu/ASOS/). (This data is the source for the `weather` dataframe in the `nycflights13` R package.)
 
 You should be aware that the concept of a "daily precipitation total" is fraught. If you are interested, there is a [presentation on the topic](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf) by Daryl Herzmann from Iowa State. I think the phrase "down the rabbit hole" occurs to everyone who looks into this topic.
 
 History
 -------
 
-Official historical precipitation data, by weather station, is available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The system requires you to submit a request after which they email you a link. It is clunky but fairly quick.
+Official historical daily precipitation data, by weather station, is available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The system requires you to submit a request after which they email you a link. It is clunky but fairly quick.
 
 Computing LGA precipitation totals from ASOS data
 -------------------------------------------------
@@ -21,17 +21,15 @@ Computing LGA precipitation totals from ASOS data
 The ASOS data was obtained from [Iowa State](https://mesonet.agron.iastate.edu/request/download.phtml?network=NY_ASOS) by selecting the New York ASOS and then LGA.
 
 <!-- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=LGA&data=all&year1=2013&month1=5&day1=30&year2=2013&month2=8&day2=1&tz=Etc%2FUTC&format=comma&latlon=no&direct=no&report_type=1&report_type=2 -->
-There are two important things to realize when using the ASOS data, which is hourly.
+There are two important things to realize when using the ASOS data.
 
-1.  The reported precipitation number is cumulative, up to a reset time which is typically between 51 and 57 minutes (thank you Daryl!) So the hourly total is this final value before the reset.
+1.  The reported precipitation number is cumulative for an hour, up to a reset time which is typically between 51 and 57 minutes (thank you Daryl!) So the hourly total is this final value before the reset.
 
-2.  The daily total is the sum of the hourly values, where a day is midnight to midnight, local *standard* time. Note that DST is not observed for this purpose. This makes sense, as the days on which DST is adopted and removed would otherwise create either an hour hole or a double-counted hour.
+2.  The reported daily total (available from the NOAA site above and widely reported as the official number) is the sum of the hourly values, where a day is defined as midnight to midnight, local *standard* time. Daylight savings time (DST) is not observed for this purpose. Ignoring DST makes sense, as the days on which DST is adopted and removed would otherwise create either an hour hole or a double-counted hour.
 
-One complication is that the reset minute can vary by site. Although it is obvious that the LGA reset occurs at 51 minutes, this is not true for all ASOS. So in the code below I compute `modalminute`, which is the most frequently occurring minute in the data. I assume that this is the reset time. Because R has no function for computing the mode, I use the `tabulate` function and `which.max` to find the most common value for minute.
+One complication is that the reset minute can vary by site. It is obvious by inspection that the LGA reset occurs at 51 minutes, but this is not true for all ASOS. So in the code below I compute the value of `modalminute`, which is the most frequently occurring minute in the data. I assume that this is the reset time. Because R has no function for computing the mode, I use the `tabulate` function and `which.max` to find the most common value for minute.
 
-Note also that I specify the time zone as "America/New\_York" and then undo DST by using the `dst` function to see if daylight savings time is in effect, and then if so, subtracting 3600 seconds from the time.
-
-A final note: on two days, the offical precipitation total is off by 0.01", and this is corrected the next day. I am not sure why this happens.
+I specify the time zone as "America/New\_York" and then undo DST by using the `dst` function to see if daylight savings time is in effect, and then if so, subtracting 3600 seconds from the time.
 
 If you are fascinated by the issues involved in measuring precipitation, [be sure to take a look at this presentation.](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf)
 
@@ -39,7 +37,7 @@ If you are fascinated by the issues involved in measuring precipitation, [be sur
 ## This was inspired by Hadley Wickham's 
 ## weather.r in the R package nycflights13
 x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv')
-x %>% 
+precip = x %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
                        "America/New_York"),
@@ -56,11 +54,13 @@ x %>%
   group_by(year, month, day) %>% 
   summarize('Daily Precipitation (ASOS)' = sum(hourlyprecip)) %>% 
   filter(year==2013, month==6) %>% 
-  left_join(lga %>% select(Historical:day)) %>% 
-  kable(caption = paste0('24-hour precipitation. ',
-                         'Hourly cumulation reset at ', 
-                         modalminute, ' minutes'))
+  left_join(lga %>% select(Historical:day))
 ```
+
+Comparison of NOAA and ASOS daily precipitation totals
+------------------------------------------------------
+
+You can see in the table below that the ASOS totals, computed above, almost exactly match the NOAA daily precipitation totals. On two days, the ASOS totals is less than the NOAA total by 0.01", and this difference is corrected the next day. I am not sure why this happens.
 
 |  year|  month|  day|  Daily Precipitation (ASOS)|  Historical|
 |-----:|------:|----:|---------------------------:|-----------:|

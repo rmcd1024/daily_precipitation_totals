@@ -3,15 +3,15 @@ Calculation of total daily precipitation using ASOS data: Example
 Robert McDonald
 June 19, 2017
 
-What is this?
--------------
+Introduction
+------------
 
 The purpose of this document is to illustrate the computation of daily precipitation totals using Automated Surface Observation System (ASOS) [data from Iowa State](https://mesonet.agron.iastate.edu/ASOS/). (This data is the source for the `weather` dataframe in the `nycflights13` R package.)
 
 You should be aware that the concept of a "daily precipitation total" is fraught. If you are interested, there is a [presentation on the topic](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf) by Daryl Herzmann from Iowa State. I think the phrase "down the rabbit hole" occurs to everyone who looks into this topic.
 
-History
--------
+Official NOAA Daily Totals
+--------------------------
 
 Official historical daily precipitation data, by weather station, is available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The system requires you to submit a request after which they email you a link. It is clunky but fairly quick.
 

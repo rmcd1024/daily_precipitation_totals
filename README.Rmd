@@ -21,7 +21,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       message=FALSE,
                       warning=FALSE)
 ```
-## What is this?
+## Introduction
 
 The purpose of this document is to illustrate the computation of 
 daily precipitation totals using Automated Surface Observation 
@@ -36,7 +36,7 @@ a
 Daryl Herzmann from Iowa State. I think the phrase "down the rabbit
 hole" occurs to everyone who looks into this topic.
 
-## History
+## Official NOAA Daily Totals
 
 Official historical daily precipitation data, by weather station, is
 available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The

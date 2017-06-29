@@ -10,10 +10,10 @@ The purpose of this document is to illustrate the computation of daily precipita
 
 You should be aware that the concept of a "daily precipitation total" is fraught. If you are interested, there is a [presentation on the topic](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf) by Daryl Herzmann from Iowa State. I think the phrase "down the rabbit hole" occurs to everyone who looks into this topic.
 
-Official NOAA Daily Totals
---------------------------
+Official NOAA Daily Precipitation Totals
+----------------------------------------
 
-Official historical daily precipitation data, by weather station, is available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The system requires you to submit a request after which they email you a link. It is clunky but fairly quick.
+Official historical daily precipitation data, by weather station, is available from the National Oceanic and Atmospheric Administration ([NOAA](https://www.ncdc.noaa.gov/cdo-web/)). The system requires you to submit a request after which they email you a link. It is clunky but fairly quick.
 
 Computing LGA precipitation totals from ASOS data
 -------------------------------------------------

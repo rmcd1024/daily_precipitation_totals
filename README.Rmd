@@ -36,12 +36,13 @@ a
 Daryl Herzmann from Iowa State. I think the phrase "down the rabbit
 hole" occurs to everyone who looks into this topic.
 
-## Official NOAA Daily Totals
+## Official NOAA Daily Precipitation Totals
 
 Official historical daily precipitation data, by weather station, is
-available from the [NOAA](https://www.ncdc.noaa.gov/cdo-web/). The
-system requires you to submit a request after which they email you a
-link. It is clunky but fairly quick.
+available from the National Oceanic and Atmospheric Administration
+([NOAA](https://www.ncdc.noaa.gov/cdo-web/)). The system requires you
+to submit a request after which they email you a link. It is clunky
+but fairly quick.
 
 ```{r, echo=FALSE}
 lgahist = read_csv('data/lga_daily_2013.csv')

@@ -3,6 +3,8 @@ Calculation of total daily precipitation using ASOS data: Example
 Robert McDonald
 June 19, 2017
 
+**Update**: It appears that in recent years (at least in 2017), the ASOS data is presented at regular 5 minute intervals. So the strategy below of computing `modalminute` will almost certainly not work.
+
 Introduction
 ------------
 

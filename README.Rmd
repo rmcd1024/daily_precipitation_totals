@@ -21,6 +21,13 @@ knitr::opts_chunk$set(echo = TRUE,
                       message=FALSE,
                       warning=FALSE)
 ```
+
+
+**Update**: It appears that in recent years (at least in 2017), the
+ASOS data is presented at regular 5 minute intervals. So the
+strategy below of computing `modalminute` will almost certainly not
+work.
+
 ## Introduction
 
 The purpose of this document is to illustrate the computation of 
@@ -35,6 +42,7 @@ a
 [presentation on the topic](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf) by
 Daryl Herzmann from Iowa State. I think the phrase "down the rabbit
 hole" occurs to everyone who looks into this topic.
+
 
 ## Official NOAA Daily Precipitation Totals
 

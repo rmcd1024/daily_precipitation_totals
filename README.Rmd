@@ -1,7 +1,7 @@
 ---
 title: 'Calculation of total daily precipitation using ASOS data: Example'
 author: "Robert McDonald"
-date: "June 19, 2017"
+date: "July 1, 2017"
 output:
   github_document: default
   html_document:
@@ -22,11 +22,6 @@ knitr::opts_chunk$set(echo = TRUE,
                       warning=FALSE)
 ```
 
-
-**Update**: It appears that in recent years (at least in 2017), the
-ASOS data is presented at regular 5 minute intervals. So the
-strategy below of computing `modalminute` will almost certainly not
-work.
 
 ## Introduction
 
@@ -53,13 +48,16 @@ to submit a request after which they email you a link. It is clunky
 but fairly quick.
 
 ```{r, echo=FALSE}
-lgahist = read_csv('data/lga_daily_2013.csv')
+setwd('~/git/rmcd/daily_precipitation_totals')
+yr = 2017; mth = 5;
+#lgahist = read_csv('data/lga_daily_2013.csv')
+lgahist = read_csv('data/lga_daily_2017.csv')
 lga = lgahist %>% 
   select(DATE, Historical=PRCP) %>% 
   mutate(year=as.numeric(substr(DATE, 1, 4)), 
          month=as.numeric(substr(DATE, 5, 6)), 
          day=as.numeric(substr(DATE, 7, 8))) %>% 
-  filter(year==2013, month==6)
+  filter(year==yr, month==mth)
 
 ```
 
@@ -71,7 +69,7 @@ by selecting the New York ASOS and then LGA.
 
 <!-- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=LGA&data=all&year1=2013&month1=5&day1=30&year2=2013&month2=8&day2=1&tz=Etc%2FUTC&format=comma&latlon=no&direct=no&report_type=1&report_type=2 -->
 
-There are two important things to realize when using the ASOS data.
+There are several important things to realize when using the ASOS data.
 
 1. The reported precipitation number is cumulative for an hour, up
 to a reset time which is typically between 51 and 57 minutes (thank
@@ -86,13 +84,28 @@ observed for this purpose. Ignoring DST makes sense, as the days on
 which DST is adopted and removed would otherwise create either an
 hour hole or a double-counted hour.
 
-One complication is that the reset minute can vary by site. It is 
-obvious by inspection that the LGA reset occurs at 51 minutes, but
-this is not true for all ASOS. So in the code below I compute the
-value of `modalminute`, which is the most frequently occurring
-minute in the data. I assume that this is the reset time. Because R
-has no function for computing the mode, I use the `tabulate`
-function and `which.max` to find the most common value for minute.
+3. Absence of precipitation may be reported as an "M" rather than 0.
+I code this as `NA`.
+
+4. Beginning in 2017, there is generally a record every 5 minutes,
+plus a record for the precipitation reset minute. Prior to 2017,
+there was most commonly only a record for the reset minute.
+
+The reset minute can vary by site. It is obvious by inspection that
+the LGA reset occurs at 51 minutes, but this is not true for all
+ASOS. So in the code below I compute the value of `modalminute`. I
+do this by finding, for each hour, the minute in the data at which
+maximum precipitation is recorded. The `which.max` function will
+pick out the row with the maximum precipitation if there is a unique
+maximum, otherwise it will pick ou the first row reporting the
+maximum value. Because there is a preponderance of zeros, this
+algorithm will select the wrong reset minute *unless* the data is
+sorted in descending order by minute.^[For example, if sorted in
+ascending order by minute, then in an hour with no rain, the 5
+minute record will be the maximum value because it is the first
+zero.] R has no function for computing the mode, so I use the 
+`tabulate` function and `which.max` to find the most common value 
+for minute. I assume that this is the reset time.
 
 I specify the time zone as "America/New_York" and
 then undo DST by using the `dst` function to see if daylight savings
@@ -107,7 +120,10 @@ precipitation,
 ```{r}
 ## This was inspired by Hadley Wickham's 
 ## weather.r in the R package nycflights13
-x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv')
+#x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv'
+x = read_csv('data/asos_lga_2017-03-31_2017-06-02.csv',
+             skip=5, na='M')
+x$p01i[is.na(x$p01i)] = 0
 precip = x %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
@@ -117,14 +133,22 @@ precip = x %>%
          month = month(date),
          day = day(date),
          hour = hour(date),
-         minute = minute(date)) %T>% 
-         {modalminute <<- which.max(tabulate(.$minute))}  %>% 
-  group_by(year, month, day, hour) %>% 
+         minute = minute(date)) %>% 
+  group_by(year, month, day, hour) 
+
+modalminute = precip %>%
+  filter(p01i > 0) %>% 
+  arrange(desc(minute), .by_group=TRUE) %>% 
+  mutate(maxminute = minute[which.max(p01i)]) %>% 
+  {which.max(tabulate(.$maxminute))}
+
+precip =  precip %>% 
   filter(minute <= modalminute) %>% 
-  summarize(hourlyprecip = max(p01i)) %>% 
+  summarize(hourlyprecip = max(p01i, na.rm=TRUE)) %>% 
   group_by(year, month, day) %>% 
-  summarize('Daily Precipitation (ASOS)' = sum(hourlyprecip)) %>% 
-  filter(year==2013, month==6) %>% 
+  summarize('Daily Precipitation (ASOS)' = 
+              sum(hourlyprecip, na.rm=TRUE)) %>% 
+  filter(year==yr, month==mth) %>% 
   left_join(lga %>% select(Historical:day))
   
 ```

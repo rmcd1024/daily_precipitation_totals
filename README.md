@@ -1,9 +1,7 @@
 Calculation of total daily precipitation using ASOS data: Example
 ================
 Robert McDonald
-June 19, 2017
-
-**Update**: It appears that in recent years (at least in 2017), the ASOS data is presented at regular 5 minute intervals. So the strategy below of computing `modalminute` will almost certainly not work.
+July 1, 2017
 
 Introduction
 ------------
@@ -23,13 +21,17 @@ Computing LGA precipitation totals from ASOS data
 The ASOS data was obtained from [Iowa State](https://mesonet.agron.iastate.edu/request/download.phtml?network=NY_ASOS) by selecting the New York ASOS and then LGA.
 
 <!-- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=LGA&data=all&year1=2013&month1=5&day1=30&year2=2013&month2=8&day2=1&tz=Etc%2FUTC&format=comma&latlon=no&direct=no&report_type=1&report_type=2 -->
-There are two important things to realize when using the ASOS data.
+There are several important things to realize when using the ASOS data.
 
 1.  The reported precipitation number is cumulative for an hour, up to a reset time which is typically between 51 and 57 minutes (thank you Daryl!) So the hourly total is this final value before the reset.
 
 2.  The reported daily total (available from the NOAA site above and widely reported as the official number) is the sum of the hourly values, where a day is defined as midnight to midnight, local *standard* time. Daylight savings time (DST) is not observed for this purpose. Ignoring DST makes sense, as the days on which DST is adopted and removed would otherwise create either an hour hole or a double-counted hour.
 
-One complication is that the reset minute can vary by site. It is obvious by inspection that the LGA reset occurs at 51 minutes, but this is not true for all ASOS. So in the code below I compute the value of `modalminute`, which is the most frequently occurring minute in the data. I assume that this is the reset time. Because R has no function for computing the mode, I use the `tabulate` function and `which.max` to find the most common value for minute.
+3.  Absence of precipitation may be reported as an "M" rather than 0. I code this as `NA`.
+
+4.  Beginning in 2017, there is generally a record every 5 minutes, plus a record for the precipitation reset minute. Prior to 2017, there was most commonly only a record for the reset minute.
+
+The reset minute can vary by site. It is obvious by inspection that the LGA reset occurs at 51 minutes, but this is not true for all ASOS. So in the code below I compute the value of `modalminute`. I do this by finding, for each hour, the minute in the data at which maximum precipitation is recorded. The `which.max` function will pick out the row with the maximum precipitation if there is a unique maximum, otherwise it will pick ou the first row reporting the maximum value. Because there is a preponderance of zeros, this algorithm will select the wrong reset minute *unless* the data is sorted in descending order by minute.[1] R has no function for computing the mode, so I use the `tabulate` function and `which.max` to find the most common value for minute. I assume that this is the reset time.
 
 I specify the time zone as "America/New\_York" and then undo DST by using the `dst` function to see if daylight savings time is in effect, and then if so, subtracting 3600 seconds from the time.
 
@@ -38,7 +40,10 @@ If you are fascinated by the issues involved in measuring precipitation, [be sur
 ``` r
 ## This was inspired by Hadley Wickham's 
 ## weather.r in the R package nycflights13
-x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv')
+#x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv'
+x = read_csv('data/asos_lga_2017-03-31_2017-06-02.csv',
+             skip=5, na='M')
+x$p01i[is.na(x$p01i)] = 0
 precip = x %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
@@ -48,14 +53,22 @@ precip = x %>%
          month = month(date),
          day = day(date),
          hour = hour(date),
-         minute = minute(date)) %T>% 
-         {modalminute <<- which.max(tabulate(.$minute))}  %>% 
-  group_by(year, month, day, hour) %>% 
+         minute = minute(date)) %>% 
+  group_by(year, month, day, hour) 
+
+modalminute = precip %>%
+  filter(p01i > 0) %>% 
+  arrange(desc(minute), .by_group=TRUE) %>% 
+  mutate(maxminute = minute[which.max(p01i)]) %>% 
+  {which.max(tabulate(.$maxminute))}
+
+precip =  precip %>% 
   filter(minute <= modalminute) %>% 
-  summarize(hourlyprecip = max(p01i)) %>% 
+  summarize(hourlyprecip = max(p01i, na.rm=TRUE)) %>% 
   group_by(year, month, day) %>% 
-  summarize('Daily Precipitation (ASOS)' = sum(hourlyprecip)) %>% 
-  filter(year==2013, month==6) %>% 
+  summarize('Daily Precipitation (ASOS)' = 
+              sum(hourlyprecip, na.rm=TRUE)) %>% 
+  filter(year==yr, month==mth) %>% 
   left_join(lga %>% select(Historical:day))
 ```
 
@@ -66,33 +79,36 @@ You can see in the table below that the ASOS totals, computed above, almost exac
 
 |  year|  month|  day|  Daily Precipitation (ASOS)|  Historical|
 |-----:|------:|----:|---------------------------:|-----------:|
-|  2013|      6|    1|                        0.00|        0.00|
-|  2013|      6|    2|                        0.11|        0.11|
-|  2013|      6|    3|                        0.96|        0.96|
-|  2013|      6|    4|                        0.00|        0.00|
-|  2013|      6|    5|                        0.00|        0.00|
-|  2013|      6|    6|                        0.10|        0.10|
-|  2013|      6|    7|                        3.32|        3.33|
-|  2013|      6|    8|                        0.80|        0.79|
-|  2013|      6|    9|                        0.00|        0.00|
-|  2013|      6|   10|                        1.25|        1.25|
-|  2013|      6|   11|                        0.14|        0.14|
-|  2013|      6|   12|                        0.00|        0.00|
-|  2013|      6|   13|                        0.87|        0.88|
-|  2013|      6|   14|                        0.26|        0.25|
-|  2013|      6|   15|                        0.00|        0.00|
-|  2013|      6|   16|                        0.00|        0.00|
-|  2013|      6|   17|                        0.00|        0.00|
-|  2013|      6|   18|                        0.20|        0.20|
-|  2013|      6|   19|                        0.00|        0.00|
-|  2013|      6|   20|                        0.00|        0.00|
-|  2013|      6|   21|                        0.00|        0.00|
-|  2013|      6|   22|                        0.00|        0.00|
-|  2013|      6|   23|                        0.00|        0.00|
-|  2013|      6|   24|                        0.00|        0.00|
-|  2013|      6|   25|                        0.01|        0.01|
-|  2013|      6|   26|                        0.01|        0.01|
-|  2013|      6|   27|                        0.13|        0.13|
-|  2013|      6|   28|                        0.00|        0.00|
-|  2013|      6|   29|                        0.00|        0.00|
-|  2013|      6|   30|                        0.00|        0.00|
+|  2017|      5|    1|                        0.00|        0.00|
+|  2017|      5|    2|                        0.00|        0.00|
+|  2017|      5|    3|                        0.00|        0.00|
+|  2017|      5|    4|                        0.00|        0.00|
+|  2017|      5|    5|                        2.27|        2.27|
+|  2017|      5|    6|                        0.06|        0.06|
+|  2017|      5|    7|                        0.00|        0.00|
+|  2017|      5|    8|                        0.00|        0.00|
+|  2017|      5|    9|                        0.00|        0.00|
+|  2017|      5|   10|                        0.00|        0.00|
+|  2017|      5|   11|                        0.00|        0.00|
+|  2017|      5|   12|                        0.00|        0.00|
+|  2017|      5|   13|                        1.74|        1.74|
+|  2017|      5|   14|                        0.01|        0.01|
+|  2017|      5|   15|                        0.00|        0.00|
+|  2017|      5|   16|                        0.00|        0.00|
+|  2017|      5|   17|                        0.00|        0.00|
+|  2017|      5|   18|                        0.00|        0.00|
+|  2017|      5|   19|                        0.00|        0.00|
+|  2017|      5|   20|                        0.01|        0.01|
+|  2017|      5|   21|                        0.00|        0.00|
+|  2017|      5|   22|                        0.64|        0.64|
+|  2017|      5|   23|                        0.00|        0.00|
+|  2017|      5|   24|                        0.03|        0.03|
+|  2017|      5|   25|                        0.87|        0.87|
+|  2017|      5|   26|                        0.12|        0.12|
+|  2017|      5|   27|                        0.00|        0.00|
+|  2017|      5|   28|                        0.00|        0.00|
+|  2017|      5|   29|                        0.16|        0.16|
+|  2017|      5|   30|                        0.03|        0.03|
+|  2017|      5|   31|                        0.05|        0.05|
+
+[1] For example, if sorted in ascending order by minute, then in an hour with no rain, the 5 minute record will be the maximum value because it is the first zero.

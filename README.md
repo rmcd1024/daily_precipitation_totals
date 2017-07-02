@@ -1,7 +1,7 @@
 Calculation of total daily precipitation using ASOS data: Example
 ================
 Robert McDonald
-July 1, 2017
+July 2, 2017
 
 Introduction
 ------------
@@ -21,21 +21,29 @@ Computing LGA precipitation totals from ASOS data
 The ASOS data was obtained from [Iowa State](https://mesonet.agron.iastate.edu/request/download.phtml?network=NY_ASOS) by selecting the New York ASOS and then LGA.
 
 <!-- https://mesonet.agron.iastate.edu/cgi-bin/request/asos.py?station=LGA&data=all&year1=2013&month1=5&day1=30&year2=2013&month2=8&day2=1&tz=Etc%2FUTC&format=comma&latlon=no&direct=no&report_type=1&report_type=2 -->
-There are several important things to realize when using the ASOS data.
+There are a number of issues that must be considered when interpreting the ASOS data.
 
-1.  The reported precipitation number is cumulative for an hour, up to a reset time which is typically between 51 and 57 minutes (thank you Daryl!) So the hourly total is this final value before the reset.
+1.  The reported precipitation number is cumulative for an hour, up to a reset minute which is typically between 51 and 57 minutes (thank you Daryl!) So the hourly total is the final value before the reset.
 
-2.  The reported daily total (available from the NOAA site above and widely reported as the official number) is the sum of the hourly values, where a day is defined as midnight to midnight, local *standard* time. Daylight savings time (DST) is not observed for this purpose. Ignoring DST makes sense, as the days on which DST is adopted and removed would otherwise create either an hour hole or a double-counted hour.
+2.  The reset minute can vary by site. It is obvious by inspection that the LGA reset occurs at 51 minutes, but this is not true for all ASOS.
 
-3.  Absence of precipitation may be reported as an "M" rather than 0. I code this as `NA`.
+3.  The reported daily total (available from the NOAA site above and widely reported as the official number) is the sum of the hourly values, where a day is defined as midnight to midnight, local *standard* time. Daylight savings time (DST) is not observed for this purpose. Ignoring DST makes sense, as the days on which DST is adopted and removed would otherwise create either an hour hole or a double-counted hour.
 
-4.  Beginning in 2017, there is generally a record every 5 minutes, plus a record for the precipitation reset minute. Prior to 2017, there was most commonly only a record for the reset minute.
+4.  Beginning in 2017, there is typically, but not always, a record every 5 minutes, plus a record for the precipitation reset minute. Prior to 2017, there was most commonly only a record for the reset minute.
 
-The reset minute can vary by site. It is obvious by inspection that the LGA reset occurs at 51 minutes, but this is not true for all ASOS. So in the code below I compute the value of `modalminute`. I do this by finding, for each hour, the minute in the data at which maximum precipitation is recorded. The `which.max` function will pick out the row with the maximum precipitation if there is a unique maximum, otherwise it will pick ou the first row reporting the maximum value. Because there is a preponderance of zeros, this algorithm will select the wrong reset minute *unless* the data is sorted in descending order by minute.[1] R has no function for computing the mode, so I use the `tabulate` function and `which.max` to find the most common value for minute. I assume that this is the reset time.
+5.  There is sometimes no record for the reset minute. For example, the last record in the hour for LGA occurs at 2013-06-08T01:49:00Z. Precipitation for that hour was 0.24".
 
-I specify the time zone as "America/New\_York" and then undo DST by using the `dst` function to see if daylight savings time is in effect, and then if so, subtracting 3600 seconds from the time.
+The algorithm to compute daily precipitation has to take into account all of these issues. In the code below, for each hour I compute `maxminute`, which is the minute at which maximum precipitation for the hour is reported. I then compute `modalminute`, which is the most frequent `maxminute` in the data. I assume that `modalminute` is the reset minute.
 
-If you are fascinated by the issues involved in measuring precipitation, [be sure to take a look at this presentation.](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf)
+I use the `which.max` function to find `maxminute`, but there is a subtlety. The `which.max` function will pick out the row with the maximum precipitation if there is a unique maximum, otherwise it will pick out the first row reporting the maximum value. At those times when there are reports for both 50 and 51 minutes, 50 minutes will almost always be selected. However, there are also times when there are no reports for 50 minutes. The result is that unless the data is sorted in descending order by minute, 50 rather than 51 minutes will be selected as the most common minute at which maximum precipitation is recorded, and hours without records at 50 minutes can miss significant amounts of precipitation. There are also times when precipitation at 51 minutes is greater than that at 50 minutes.
+
+Note also that we can't simply use the precipitation amount reported at `maxminute`, because there could be precipitation reported at 55 minutes and not at 51 minutes. Since precipitation at 55 minutes will be included in the next hour's total, we would double-count that amount.
+
+Once `maxminute` is computed for each hour, the mode of `maxminute` should be the reset minute. R has no function for computing the mode, so I use the `tabulate` function together with `which.max` to find the most common value for minute. This is `modalminute`.
+
+I specify the time zone for LGA as "America/New\_York" and then undo DST by using the `dst` function to see if daylight savings time is in effect, and then if so, subtracting 3600 seconds from the time.
+
+If you are interested in the issues that arise when measuring precipitation, [be sure to take a look at this presentation.](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2013_web.pdf)
 
 ``` r
 ## This was inspired by Hadley Wickham's 
@@ -43,8 +51,8 @@ If you are fascinated by the issues involved in measuring precipitation, [be sur
 #x = read_csv('data/asos_lga_2013-06-01_2013-08-01.csv'
 x = read_csv('data/asos_lga_2017-03-31_2017-06-02.csv',
              skip=5, na='M')
-x$p01i[is.na(x$p01i)] = 0
 precip = x %>% 
+  filter(p01i != 'M') %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
                        "America/New_York"),
@@ -57,12 +65,11 @@ precip = x %>%
   group_by(year, month, day, hour) 
 
 modalminute = precip %>%
-  filter(p01i > 0) %>% 
   arrange(desc(minute), .by_group=TRUE) %>% 
   mutate(maxminute = minute[which.max(p01i)]) %>% 
   {which.max(tabulate(.$maxminute))}
 
-precip =  precip %>% 
+precip = precip %>% 
   filter(minute <= modalminute) %>% 
   summarize(hourlyprecip = max(p01i, na.rm=TRUE)) %>% 
   group_by(year, month, day) %>% 
@@ -75,7 +82,7 @@ precip =  precip %>%
 Comparison of NOAA and ASOS daily precipitation totals
 ------------------------------------------------------
 
-You can see in the table below that the ASOS totals, computed above, almost exactly match the NOAA daily precipitation totals. On two days, the ASOS totals is less than the NOAA total by 0.01", and this difference is corrected the next day. I am not sure why this happens.
+You can see in the table below that the ASOS totals, computed above, exactly match the NOAA daily precipitation totals. At times, though not in May 2017, the ASOS total differs from the NOAA total by 0.01", and this difference is corrected the next day. I am not sure why this happens. This suggests that NOAA is using more precisely timed precipitation measures.
 
 |  year|  month|  day|  Daily Precipitation (ASOS)|  Historical|
 |-----:|------:|----:|---------------------------:|-----------:|
@@ -110,5 +117,3 @@ You can see in the table below that the ASOS totals, computed above, almost exac
 |  2017|      5|   29|                        0.16|        0.16|
 |  2017|      5|   30|                        0.03|        0.03|
 |  2017|      5|   31|                        0.05|        0.05|
-
-[1] For example, if sorted in ascending order by minute, then in an hour with no rain, the 5 minute record will be the maximum value because it is the first zero.

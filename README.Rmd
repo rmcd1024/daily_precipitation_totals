@@ -145,7 +145,7 @@ presentation.](https://mesonet.agron.iastate.edu/present/130903_isu/isumet_fall2
 x = read_csv('data/asos_lga_2017-03-31_2017-06-02.csv',
              skip=5, na='M')
 precip = x %>% 
-  filter(p01i != 'M') %>% 
+  filter(!is.na(p01i)) %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
                        "America/New_York"),

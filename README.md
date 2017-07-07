@@ -52,7 +52,7 @@ If you are interested in the issues that arise when measuring precipitation, [be
 x = read_csv('data/asos_lga_2017-03-31_2017-06-02.csv',
              skip=5, na='M')
 precip = x %>% 
-  filter(p01i != 'M') %>% 
+  filter(!is.na(p01i)) %>% 
   select(station, valid, p01i) %>% 
   mutate(date = with_tz(as.POSIXct(valid, tz='UCT'),
                        "America/New_York"),
